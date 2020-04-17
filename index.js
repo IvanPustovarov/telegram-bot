@@ -1,39 +1,29 @@
-const express = require("express");
-const path = require("path");
-const cool = require("cool-ascii-faces");
-const { Pool } = require("pg");
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: true,
+const TelegramBot = require("node-telegram-bot-api");
+
+const token = "1122814458:AAFfZTpp7jvstb62C1BUnGmo381gT0FPHlM";
+
+const bot = new TelegramBot(token, { polling: true });
+let notes = [];
+
+bot.onText(/remember (.+) в (.+)/, (msg, match) => {
+  var userId = msg.from.id;
+  var text = match[1];
+  var time = match[2];
+
+  notes.push({ uid: userId, time: time, text: text });
+
+  bot.sendMessage(userId, "Отлично! Я обязательно напомню, если не сдохну :)");
 });
-const PORT = process.env.PORT || 5000;
 
-express()
-  .use(express.static(path.join(__dirname, "public")))
-  .set("views", path.join(__dirname, "views"))
-  .set("view engine", "ejs")
-  .get("/", (req, res) => res.render("pages/index"))
-  .get("/cool", (req, res) => res.send(cool()))
-  .get("/times", (req, res) => res.send(showTimes()))
-  .get("/db", async (req, res) => {
-    try {
-      const client = await pool.connect();
-      const result = await client.query("SELECT * FROM test_table");
-      const results = { results: result ? result.rows : null };
-      res.render("pages/db", results);
-      client.release();
-    } catch (err) {
-      console.error(err);
-      res.send("Error " + err);
+setInterval(() => {
+  for (var i = 0; i < notes.length; i++) {
+    const curDate = new Date().getHours() + ":" + new Date().getMinutes();
+    if (notes[i]["time"] === curDate) {
+      bot.sendMessage(
+        notes[i]["uid"],
+        "Напоминаю, что вы должны: " + notes[i]["text"] + " сейчас."
+      );
+      notes.splice(i, 1);
     }
-  })
-  .listen(PORT, () => console.log(`Listening on ${PORT}`));
-
-showTimes = () => {
-  let result = "";
-  const times = process.env.TIMES || 5;
-  for (i = 0; i < times; i++) {
-    result += i + " ";
   }
-  return result;
-};
+}, 1000);
